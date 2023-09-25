@@ -1,0 +1,41 @@
+{
+  "name": "multisender",
+  "version": "1.0.0",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "serve": "hardhat node --no-deploy",
+    "deploy": "hardhat deploy --network hardhat",
+    "deploy:localhost": "npx hardhat deploy --network localhost --report-gas --reset",
+    "deploy:sepolia": "npx hardhat deploy --network sepolia --tags seeder",
+    "deploy:arbitrumGoerli": "npx hardhat deploy --network arbitrumGoerli --report-gas",
+    "deploy:nft": "npx hardhat deploy --tags nft",
+    "lint": "prettier --write --list-different '{contracts,deploy,test,tasks}/**/*.{sol,ts}'"
+  },
+  "repository": "git@github.com:openreachtech/multisender.git",
+  "author": "tak <re795h@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^3.0.0",
+    "@nomicfoundation/hardhat-verify": "^1.0.0",
+    "@openzeppelin/contracts": "^4.9.3",
+    "@typechain/ethers-v6": "^0.4.0",
+    "@typechain/hardhat": "^8.0.0",
+    "@types/chai": "^4.2.0",
+    "@types/mocha": ">=9.1.0",
+    "@types/node": ">=16.0.0",
+    "chai": "^4.2.0",
+    "ethers": "^6.4.0",
+    "hardhat": "^2.17.3",
+    "hardhat-deploy": "^0.11.37",
+    "hardhat-gas-reporter": "^1.0.8",
+    "prettier-plugin-solidity": "^1.1.3",
+    "solidity-coverage": "^0.8.0",
+    "ts-node": ">=8.0.0",
+    "typechain": "^8.1.0",
+    "typescript": ">=4.5.0"
+  }
+}

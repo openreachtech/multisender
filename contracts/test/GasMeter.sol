@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.8.0 <0.9.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {LibString} from "../libraries/LibString.sol";
+
+/**
+ * @dev Measure the gas consumed during the transfer of ERC20 and ERC721 tokens
+ */
+contract GasMeter {
+    using LibString for uint256;
+
+    event ConsumedGas(uint256[] consumeds);
+
+    function mesureERC20Transfer(
+        IERC20 token,
+        address[] calldata tos,
+        uint256[] calldata amounts
+    ) public {
+        require(tos.length == amounts.length, "tos and amounts must have the same length");
+
+        uint256[] memory consumedGas = new uint256[](tos.length);
+        for (uint256 i = 0; i < tos.length; i++) {
+            uint256 startGas = gasleft();
+            require(token.transferFrom(msg.sender, tos[i], amounts[i]), "transferFrom failed");
+            uint256 endGas = gasleft();
+            consumedGas[i] = startGas - endGas;
+        }
+
+        emit ConsumedGas(consumedGas);
+    }
+}
