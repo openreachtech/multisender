@@ -2,6 +2,7 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import {LibString} from "../libraries/LibString.sol";
 
 /**
@@ -23,6 +24,24 @@ contract GasMeter {
         for (uint256 i = 0; i < tos.length; i++) {
             uint256 startGas = gasleft();
             require(token.transferFrom(msg.sender, tos[i], amounts[i]), "transferFrom failed");
+            uint256 endGas = gasleft();
+            consumedGas[i] = startGas - endGas;
+        }
+
+        emit ConsumedGas(consumedGas);
+    }
+
+    function mesureERC721Transfer(
+        IERC721 token,
+        address[] calldata tos,
+        uint256[] calldata tokenIds
+    ) public {
+        require(tos.length == tokenIds.length, "tos and tokenIds must have the same length");
+
+        uint256[] memory consumedGas = new uint256[](tos.length);
+        for (uint256 i = 0; i < tos.length; i++) {
+            uint256 startGas = gasleft();
+            token.transferFrom(msg.sender, tos[i], tokenIds[i]);
             uint256 endGas = gasleft();
             consumedGas[i] = startGas - endGas;
         }
