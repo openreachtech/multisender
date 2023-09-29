@@ -6,7 +6,9 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 contract ERC20MockGasEater is ERC20 {
     mapping(bytes32 => uint256) private _garbage;
 
-    constructor() ERC20("ERC20MockGasEater", "E20MGE") {}
+    constructor() ERC20("ERC20MockGasEater", "E20MGE") {
+        _mint(msg.sender, 100 * 10 ** 18);
+    }
 
     function mint(address account, uint256 amount) external {
         _mint(account, amount);

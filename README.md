@@ -35,4 +35,22 @@ yarn deploy:any
 # Set environment variables
 export ERC20_ADDRESS=0xXXX..
 export SENDER_ADDRESS=0xXXX..
+
+# Transfer
+npx hardhat senderc20  --network any \
+  --tos 0x2ED22eA03fEA3e5BD90f6Fdd52C20c26ff6e1300,0x48466Bc93dF6563c2A638A4be20Feca46A1E314e,0xBDDf8Fad2d30Cd4F7140244690b347fA873e082b \
+  --amounts 123000,123000123,123000123000
+```
+
+### For ERC721 Tokens
+```
+# Set environment variables
+export ERC721_ADDRESS=0xXXX..
+export SENDER_ADDRESS=0xXXX..
+
+# Transfer
+npx hardhat senderc721  --network any \
+  --tos 0x2ED22eA03fEA3e5BD90f6Fdd52C20c26ff6e1300,0x48466Bc93dF6563c2A638A4be20Feca46A1E314e,0xBDDf8Fad2d30Cd4F7140244690b347fA873e082b \
+  --tokenids 123000,123000123,123000123000 \
+  --data 0x,0x,0x
 ```

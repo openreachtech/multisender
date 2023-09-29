@@ -27,7 +27,6 @@ describe("GasMeter", function () {
     it("mesure gas cost of erc20 transfer", async function () {
       const { erc20, meter, minter, recepient1, recepient2, recepient3, recepient4, recepient5, recepient6, recepient7 } =
         await loadFixture(deployGasMeterFixture);
-      await erc20.mint(minter, 100_000);
       await erc20.approve(meter.target, 100_000);
 
       const tos = [

@@ -4,7 +4,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "serve": "hardhat node --no-deploy",
+    "chain": "hardhat node --no-deploy",
     "coverage": "hardhat coverage",
     "deploy": "hardhat deploy --network hardhat",
     "deploy:localhost": "npx hardhat deploy --network localhost --report-gas --reset",

@@ -54,9 +54,8 @@ describe("Multisender", function () {
 
   describe("multisendERC20", function () {
     it("succeed", async function () {
-      const { minter, erc20, multisender } = await loadFixture(deployContracts);
+      const { erc20, multisender } = await loadFixture(deployContracts);
       // prepare
-      await erc20.mint(minter, 100_000);
       await erc20.approve(multisender.target, 100_000);
 
       // transfer
@@ -73,7 +72,6 @@ describe("Multisender", function () {
     it("fail: insufficent gas sending", async function () {
       const { minter, erc20, multisender } = await loadFixture(deployContracts);
       // prepare
-      await erc20.mint(minter, 100_000);
       await erc20.approve(multisender.target, 100_000);
 
       const tos = generateAddresses(123);
@@ -82,15 +80,14 @@ describe("Multisender", function () {
       const gas = await method.estimateGas(erc20.target, tos, amounts, 0);
       const tx = await method.populateTransaction(erc20.target, tos, amounts, 0);
       // sub some gas from estimation
-      tx.gasLimit = gas - (await multisender.BASE_ERC721_TRANSFER_GAS());
+      tx.gasLimit = gas - (await multisender.BASE_ERC20_TRANSFER_GAS());
 
       await expect(minter.sendTransaction(tx)).to.be.revertedWith(/^will run out of gas at index 123 in 123/);
     });
 
     it("fail: gas greefing", async function () {
-      const { minter, erc20Eater, multisender } = await loadFixture(deployContracts);
+      const { erc20Eater, multisender } = await loadFixture(deployContracts);
       // prepare
-      await erc20Eater.mint(minter, 100_000);
       await erc20Eater.approve(multisender.target, 100_000);
 
       const tos = generateAddresses(123);
@@ -136,7 +133,7 @@ describe("Multisender", function () {
       const gas = await method.estimateGas(erc721.target, tos, tokenIds, data, 0);
       const tx = await method.populateTransaction(erc721.target, tos, tokenIds, data, 0);
       // sub some gas from estimation
-      tx.gasLimit = gas - (await multisender.BASE_ERC20_TRANSFER_GAS());
+      tx.gasLimit = gas - (await multisender.BASE_ERC721_TRANSFER_GAS());
 
       await expect(minter.sendTransaction(tx)).to.be.revertedWith(new RegExp(/^will run out of gas at index 123 in 123/));
     });
