@@ -10,7 +10,8 @@
     "deploy:sepolia": "npx hardhat deploy --network sepolia --tags seeder",
     "deploy:arbitrumGoerli": "npx hardhat deploy --network arbitrumGoerli --report-gas",
     "deploy:nft": "npx hardhat deploy --tags nft",
-    "lint": "prettier --write --list-different '{contracts,deploy,test,tasks}/**/*.{sol,ts}'"
+    "lint": "prettier --write --list-different '{contracts,deploy,test,tasks}/**/*.{sol,ts}'",
+    "slither": "slither ./contracts --solc-remaps @openzeppelin=node_modules/@openzeppelin"
   },
   "repository": "git@github.com:openreachtech/multisender.git",
   "author": "tak <re795h@gmail.com>",

@@ -31,7 +31,7 @@ describe("Multisender", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
-  async function deployMultisenderFixture() {
+  async function deployContracts() {
     const [minter] = await ethers.getSigners();
 
     const ERC20Mock = await ethers.getContractFactory("ERC20Mock");
@@ -54,7 +54,7 @@ describe("Multisender", function () {
 
   describe("multisendERC20", function () {
     it("succeed", async function () {
-      const { minter, erc20, multisender } = await loadFixture(deployMultisenderFixture);
+      const { minter, erc20, multisender } = await loadFixture(deployContracts);
       // prepare
       await erc20.mint(minter, 100_000);
       await erc20.approve(multisender.target, 100_000);
@@ -71,12 +71,11 @@ describe("Multisender", function () {
     });
 
     it("fail: insufficent gas sending", async function () {
-      const { minter, erc20, multisender } = await loadFixture(deployMultisenderFixture);
+      const { minter, erc20, multisender } = await loadFixture(deployContracts);
       // prepare
       await erc20.mint(minter, 100_000);
       await erc20.approve(multisender.target, 100_000);
 
-      // transfer
       const tos = generateAddresses(123);
       const amounts = generateSerial(123, 100);
       const method = multisender.multisendERC20;
@@ -89,12 +88,11 @@ describe("Multisender", function () {
     });
 
     it("fail: gas greefing", async function () {
-      const { minter, erc20Eater, multisender } = await loadFixture(deployMultisenderFixture);
+      const { minter, erc20Eater, multisender } = await loadFixture(deployContracts);
       // prepare
       await erc20Eater.mint(minter, 100_000);
       await erc20Eater.approve(multisender.target, 100_000);
 
-      // transfer
       const tos = generateAddresses(123);
       const amounts = generateSerial(123, 100);
 
@@ -108,7 +106,7 @@ describe("Multisender", function () {
 
   describe("multisendERC721", function () {
     it("succeed", async function () {
-      const { minter, erc721, multisender } = await loadFixture(deployMultisenderFixture);
+      const { minter, erc721, multisender } = await loadFixture(deployContracts);
       // prepare
       const tokenIds = generateSerial(123, 100);
       for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
@@ -126,13 +124,12 @@ describe("Multisender", function () {
     });
 
     it("fail: insufficent gas sending", async function () {
-      const { minter, erc721, multisender } = await loadFixture(deployMultisenderFixture);
+      const { minter, erc721, multisender } = await loadFixture(deployContracts);
       // prepare
       const tokenIds = generateSerial(123, 100);
       for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
       await erc721.setApprovalForAll(multisender.target, true);
 
-      // transfer
       const tos = generateAddresses(123);
       const data = generateRandomBytes(123, 256);
       const method = multisender.multisendERC721;
@@ -145,13 +142,12 @@ describe("Multisender", function () {
     });
 
     it("fail: gas greefing", async function () {
-      const { minter, erc721, erc721Eater, multisender } = await loadFixture(deployMultisenderFixture);
+      const { minter, erc721, erc721Eater, multisender } = await loadFixture(deployContracts);
       // prepare
       const tokenIds = generateSerial(123, 100);
       for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
       await erc721.setApprovalForAll(multisender.target, true);
 
-      // transfer
       let tos = generateAddresses(123);
       const data = generateRandomBytes(123, 256);
 

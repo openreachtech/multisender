@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity ^0.8.0;
 
 import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-import {LibString} from "./libraries/LibString.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract Multisender {
-    using LibString for uint256;
-    using LibString for address;
+    using Strings for uint256;
+    using Strings for address;
 
     // Default gas consumption when utilizing Openzeppelin mesured by `GasMeter.sol`
     uint256 public constant baseERC20TransferGas = 28384;
@@ -36,7 +36,7 @@ contract Multisender {
 
         uint256 baseGas = baseGas_ != 0 ? baseGas_ : baseERC20TransferGas;
 
-        string memory failedList;
+        string memory failedList = "";
         uint256 total = tos.length;
         for (uint256 i = 0; i < tos.length; i++) {
             _validateLeftgas(i, total, baseGas * safety);
@@ -71,7 +71,7 @@ contract Multisender {
 
         uint256 baseGas = baseGas_ != 0 ? baseGas_ : basERC721TransferGas;
 
-        string memory failedList;
+        string memory failedList = "";
         uint256 total = tos.length;
         for (uint256 i = 0; i < tos.length; i++) {
             _validateLeftgas(i, total, baseGas * safety);
@@ -102,6 +102,7 @@ contract Multisender {
 
     function _assertFailedList(string memory failedList) internal pure {
         bytes32 length;
+
         assembly {
             length := mload(failedList)
         }
@@ -125,6 +126,7 @@ contract Multisender {
         uint256 baseGas
     ) internal returns (bool) {
         // NOTE: call transferFrom with gas limit to avoid gas greefing
+        // slither-disable-next-line low-level-calls
         (bool success, bytes memory data) = token.call{gas: baseGas * safety}(
             abi.encodeWithSignature(
                 "transferFrom(address,address,uint256)",
@@ -144,6 +146,7 @@ contract Multisender {
         uint256 baseGas
     ) internal returns (bool) {
         // NOTE: call transferFrom with gas limit to avoid gas greefing
+        // slither-disable-next-line low-level-calls
         (bool success, ) = token.call{gas: baseGas * safety}(
             abi.encodeWithSignature(
                 "safeTransferFrom(address,address,uint256,bytes)",
@@ -155,11 +158,5 @@ contract Multisender {
         );
 
         return success;
-    }
-
-    function _printAddresses(address[] memory addrs) internal pure returns (string memory str) {
-        for (uint256 i = 0; i < addrs.length; i++) {
-            str = string.concat(str, ",", addrs[i].toHexString(), "\n");
-        }
     }
 }
