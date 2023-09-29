@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
-import {LibString} from "../libraries/LibString.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 /**
  * @dev Measure the gas consumed during the transfer of ERC20 and ERC721 tokens
  */
 contract GasMeter {
-    using LibString for uint256;
+    using Strings for uint256;
 
     event ConsumedGas(uint256[] consumeds);
 

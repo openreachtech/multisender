@@ -17,14 +17,16 @@ const config: HardhatUserConfig = {
     },
     localhost: {
       url: "http://127.0.0.1:8545",
-      accounts: ["d1c71e71b06e248c8dbe94d49ef6d6b0d64f5d71b1e33a0f39e14dadb070304a", "8179ce3d00ac1d1d1d38e4f038de00ccd0e0375517164ac5448e3acc847acb34"]
+      accounts: ["d1c71e71b06e248c8dbe94d49ef6d6b0d64f5d71b1e33a0f39e14dadb070304a"]
     },
-    sepolia: {
+    any: {
       url: NETWORK_URL,
-      // chainId: 11155111,
       accounts: [DEPLOYER_KEY]
     },
   },
+  namedAccounts: {
+		deployer: 0
+	},
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
   },

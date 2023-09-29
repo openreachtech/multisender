@@ -82,9 +82,9 @@ describe("Multisender", function () {
       const gas = await method.estimateGas(erc20.target, tos, amounts, 0);
       const tx = await method.populateTransaction(erc20.target, tos, amounts, 0);
       // sub some gas from estimation
-      tx.gasLimit = gas - (await multisender.baseERC20TransferGas());
+      tx.gasLimit = gas - (await multisender.BASE_ERC721_TRANSFER_GAS());
 
-      await expect(minter.sendTransaction(tx)).to.be.revertedWith(new RegExp(/'will run out of gas at index 123 in 123'.*/));
+      await expect(minter.sendTransaction(tx)).to.be.revertedWith(/^will run out of gas at index 123 in 123/);
     });
 
     it("fail: gas greefing", async function () {
@@ -136,9 +136,9 @@ describe("Multisender", function () {
       const gas = await method.estimateGas(erc721.target, tos, tokenIds, data, 0);
       const tx = await method.populateTransaction(erc721.target, tos, tokenIds, data, 0);
       // sub some gas from estimation
-      tx.gasLimit = gas - (await multisender.basERC721TransferGas());
+      tx.gasLimit = gas - (await multisender.BASE_ERC20_TRANSFER_GAS());
 
-      await expect(minter.sendTransaction(tx)).to.be.revertedWith(new RegExp(/'will run out of gas at index 123 in 123'.*/));
+      await expect(minter.sendTransaction(tx)).to.be.revertedWith(new RegExp(/^will run out of gas at index 123 in 123/));
     });
 
     it("fail: gas greefing", async function () {

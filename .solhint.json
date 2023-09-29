@@ -1,0 +1,8 @@
+{
+  "extends": "solhint:recommended",
+  "rules": {
+    "custom-errors": "",
+    "reason-string" :  "",
+    "avoid-low-level-calls": ""
+  }
+}
