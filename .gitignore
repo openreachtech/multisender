@@ -135,6 +135,7 @@ coverage
 coverage.json
 typechain
 typechain-types
+developments
 
 # Hardhat files
 cache

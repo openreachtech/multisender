@@ -3,6 +3,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import "hardhat-deploy";
 import 'hardhat-gas-reporter';
 
+import "./tasks/send";
 import "./tasks/senderc20";
 import "./tasks/senderc721";
 
