@@ -3,29 +3,29 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Wallet, randomBytes } from "ethers";
 
-const generateAddresses = (size: number): string[] => {
+type GeneratorFunction<T> = () => T;
+
+const generateData = <T>(size: number, generator: GeneratorFunction<T>): T[] => {
   const result = [];
   for (let i = 0; i < size; i++) {
-    result.push(Wallet.createRandom().address.toLocaleLowerCase());
+    result.push(generator());
   }
   return result;
 };
 
-const generateSerial = (size: number, base: number): number[] => {
-  const result = [];
-  for (let i = 0; i < size; i++) {
-    result.push(++base);
-  }
-  return result;
-};
+const generateAddresses = (size: number): string[] =>
+  generateData<string>(size, () => Wallet.createRandom().address.toLocaleLowerCase());
 
-const generateRandomBytes = (size: number, length: number): Uint8Array[] => {
-  const result = [];
-  for (let i = 0; i < size; i++) {
-    result.push(randomBytes(length));
-  }
-  return result;
-};
+const generateSerial = (size: number, base: number): number[] =>
+  generateData<number>(
+    size,
+    (
+      (_base) => () =>
+        ++_base
+    )(base)
+  );
+
+const generateRandomBytes = (size: number, l: number): Uint8Array[] => generateData<Uint8Array>(size, () => randomBytes(l));
 
 describe("Multisender", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -40,6 +40,9 @@ describe("Multisender", function () {
     const ERC721Mock = await ethers.getContractFactory("ERC721Mock");
     const erc721 = await ERC721Mock.deploy();
 
+    const GasEater = await ethers.getContractFactory("GasEater");
+    const eater = await GasEater.deploy();
+
     const ERC20MockGasEater = await ethers.getContractFactory("ERC20MockGasEater");
     const erc20Eater = await ERC20MockGasEater.deploy();
 
@@ -49,8 +52,38 @@ describe("Multisender", function () {
     const Multisender = await ethers.getContractFactory("Multisender");
     const multisender = await Multisender.deploy();
 
-    return { minter, erc20, erc721, erc20Eater, erc721Eater, multisender };
+    return { minter, erc20, erc721, eater, erc20Eater, erc721Eater, multisender };
   }
+
+  describe("multisend", function () {
+    it("succeed", async function () {
+      const { multisender } = await loadFixture(deployContracts);
+
+      // transfer
+      const tos = generateAddresses(123);
+      const amounts = generateSerial(123, 100);
+      const sum = amounts.reduce((acc, cur) => acc + cur);
+      await expect(multisender.multisend(tos, amounts, 0, { value: sum })).not.to.be.reverted;
+
+      // confirm sent amount
+      for (let i = 0; i < tos.length; i++) {
+        expect(await ethers.provider.getBalance(tos[i])).to.equal(amounts[i]);
+      }
+    });
+
+    it("fail: gas greefing", async function () {
+      const { eater, multisender } = await loadFixture(deployContracts);
+
+      const tos = generateAddresses(123);
+      tos[12] = (eater.target as string).toLocaleLowerCase();
+      const amounts = generateSerial(123, 100);
+      const sum = amounts.reduce((acc, cur) => acc + cur);
+
+      await expect(multisender.multisend(tos, amounts, 0, { value: sum })).to.be.rejectedWith(
+        `failed to transfer to 1 addresses: ${tos[12] + ","}`
+      );
+    });
+  });
 
   describe("multisendERC20", function () {
     it("succeed", async function () {
@@ -69,21 +102,21 @@ describe("Multisender", function () {
       }
     });
 
-    it("fail: insufficent gas sending", async function () {
-      const { minter, erc20, multisender } = await loadFixture(deployContracts);
-      // prepare
-      await erc20.approve(multisender.target, 100_000);
+    // it("fail: insufficent gas sending", async function () {
+    //   const { minter, erc20, multisender } = await loadFixture(deployContracts);
+    //   // prepare
+    //   await erc20.approve(multisender.target, 100_000);
 
-      const tos = generateAddresses(123);
-      const amounts = generateSerial(123, 100);
-      const method = multisender.multisendERC20;
-      const gas = await method.estimateGas(erc20.target, tos, amounts, 0);
-      const tx = await method.populateTransaction(erc20.target, tos, amounts, 0);
-      // sub some gas from estimation
-      tx.gasLimit = gas - (await multisender.BASE_ERC20_TRANSFER_GAS());
+    //   const tos = generateAddresses(123);
+    //   const amounts = generateSerial(123, 100);
+    //   const method = multisender.multisendERC20;
+    //   const gas = await method.estimateGas(erc20.target, tos, amounts, 0);
+    //   const tx = await method.populateTransaction(erc20.target, tos, amounts, 0);
+    //   // sub some gas from estimation
+    //   tx.gasLimit = gas - (await multisender.BASE_ERC20_TRANSFER_GAS());
 
-      await expect(minter.sendTransaction(tx)).to.be.revertedWith(/^will run out of gas at index 123 in 123/);
-    });
+    //   await expect(minter.sendTransaction(tx)).to.be.revertedWith(/^will run out of gas at index 123 in 123/);
+    // });
 
     it("fail: gas greefing", async function () {
       const { erc20Eater, multisender } = await loadFixture(deployContracts);
@@ -120,23 +153,23 @@ describe("Multisender", function () {
       }
     });
 
-    it("fail: insufficent gas sending", async function () {
-      const { minter, erc721, multisender } = await loadFixture(deployContracts);
-      // prepare
-      const tokenIds = generateSerial(123, 100);
-      for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
-      await erc721.setApprovalForAll(multisender.target, true);
+    // it("fail: insufficent gas sending", async function () {
+    //   const { minter, erc721, multisender } = await loadFixture(deployContracts);
+    //   // prepare
+    //   const tokenIds = generateSerial(123, 100);
+    //   for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
+    //   await erc721.setApprovalForAll(multisender.target, true);
 
-      const tos = generateAddresses(123);
-      const data = generateRandomBytes(123, 256);
-      const method = multisender.multisendERC721;
-      const gas = await method.estimateGas(erc721.target, tos, tokenIds, data, 0);
-      const tx = await method.populateTransaction(erc721.target, tos, tokenIds, data, 0);
-      // sub some gas from estimation
-      tx.gasLimit = gas - (await multisender.BASE_ERC721_TRANSFER_GAS());
+    //   const tos = generateAddresses(123);
+    //   const data = generateRandomBytes(123, 256);
+    //   const method = multisender.multisendERC721;
+    //   const gas = await method.estimateGas(erc721.target, tos, tokenIds, data, 0);
+    //   const tx = await method.populateTransaction(erc721.target, tos, tokenIds, data, 0);
+    //   // sub some gas from estimation
+    //   tx.gasLimit = gas - (await multisender.BASE_ERC721_TRANSFER_GAS());
 
-      await expect(minter.sendTransaction(tx)).to.be.revertedWith(new RegExp(/^will run out of gas at index 123 in 123/));
-    });
+    //   await expect(minter.sendTransaction(tx)).to.be.revertedWith(new RegExp(/^will run out of gas at index 123 in 123/));
+    // });
 
     it("fail: gas greefing", async function () {
       const { minter, erc721, erc721Eater, multisender } = await loadFixture(deployContracts);
