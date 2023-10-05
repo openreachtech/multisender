@@ -143,3 +143,6 @@ artifacts
 
 # Mac
 .DS_Store
+
+note.md
+.envrc

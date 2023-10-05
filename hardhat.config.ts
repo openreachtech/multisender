@@ -7,7 +7,7 @@ import "./tasks/send";
 import "./tasks/senderc20";
 import "./tasks/senderc721";
 
-const NETWORK_URL: string = process.env.NETWORK || "";
+const NETWORK_URL: string = process.env.NETWORK_URL || "";
 const DEPLOYER_KEY: string = process.env.DEPLOYER_KEY || "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 const ETHERSCAN_API_KEY: string = process.env.ETHERSCAN_API_KEY || "";
 
