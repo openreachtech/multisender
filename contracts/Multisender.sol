@@ -27,6 +27,9 @@ contract Multisender {
     // The multiplier to calculate max consumable gas
     uint256 public constant MAX_GAS_MULTIPLIER = 3;
 
+    error FailedInnerCall();
+    error MesuredGas(uint256 sum, uint256 avarage);
+
     /**
      * @dev Transfer native token to multiple receipients
      * Revert if the transferring operation consume larger gas then standard
@@ -91,7 +94,6 @@ contract Multisender {
                     abi.encode(msg.sender, tos[i], amounts[i])
                 )
             ) {
-                // if (!_transferERC20(token, tos[i], amounts[i], baseGas)) {
                 failedList = string.concat(failedList, tos[i].toHexString(), ",");
             }
         }
@@ -137,6 +139,27 @@ contract Multisender {
         }
 
         _assertFailedList(failedList);
+    }
+
+    function mesureAverageGas(
+        address token,
+        address[] calldata tos,
+        uint256[] calldata tokenIds,
+        bytes[] calldata data
+    ) public payable returns (uint256) {
+        uint256 sum = 0;
+        for (uint256 i = 0; i < tos.length; i++) {
+            uint256 startGas = gasleft();
+            _transferGenericWithErrMesage(
+                token,
+                "safeTransferFrom(address,address,uint256,bytes)",
+                abi.encode(msg.sender, tos[i], tokenIds[i], data[i])
+            );
+            uint256 endGas = gasleft();
+            sum += startGas - endGas;
+        }
+
+        revert MesuredGas(sum, sum / tos.length);
     }
 
     // function _validateLeftgas(uint256 i, uint256 total, uint256 requiredGas) internal view {
@@ -196,5 +219,28 @@ contract Multisender {
             return success && abi.decode(data, (bool));
         }
         return success;
+    }
+
+    function _transferGenericWithErrMesage(
+        address target,
+        string memory functionSignature,
+        bytes memory args
+    ) internal {
+        // NOTE: call with gas limit to avoid gas greefing
+        // slither-disable-next-line low-level-calls
+        (bool success, bytes memory data) = target.call(
+            abi.encodePacked(bytes4(keccak256(bytes(functionSignature))), args)
+        );
+
+        if (success) return;
+
+        if (data.length > 0) {
+            assembly {
+                let returndata_size := mload(data)
+                revert(add(32, data), returndata_size)
+            }
+        } else {
+            revert FailedInnerCall();
+        }
     }
 }

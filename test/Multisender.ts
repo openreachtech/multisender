@@ -191,4 +191,27 @@ describe("Multisender", function () {
       );
     });
   });
+
+  describe("mesureAverageGas", function () {
+
+    it("fail: gas greefing", async function () {
+      const { minter, erc721, multisender } = await loadFixture(deployContracts);
+      // prepare
+      const tokenIds = generateSerial(123, 100);
+      for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
+      await erc721.setApprovalForAll(multisender.target, true);
+
+      // transfer
+      const tos = generateAddresses(123);
+      const data = generateRandomBytes(123, 256);
+      
+      const receipt = await multisender.mesureAverageGas(erc721.target, tos, tokenIds, data);
+      console.log(receipt)
+
+      // confirm sent tokenId
+      // for (let i = 0; i < tos.length; i++) {
+      //   expect((await erc721.ownerOf(tokenIds[i])).toLocaleLowerCase()).to.equal(tos[i]);
+      // }
+    });
+  });
 });
