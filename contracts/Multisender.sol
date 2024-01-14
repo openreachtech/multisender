@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC721} from "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /**
  * @dev Send ERC20/ERC721 to multiple account at once
@@ -29,7 +30,6 @@ contract Multisender {
     uint256 public constant MAX_GAS_MULTIPLIER = 3;
 
     error FailedInnerCall();
-    error MesuredGas(uint256 sum, uint256 avarage);
 
     /**
      * @dev Transfer native token to multiple receipients
@@ -150,46 +150,44 @@ contract Multisender {
         _assertFailedList(failedList, failedCount);
     }
 
-    // function mesureAverageGas(
-    //     address token,
-    //     address[] calldata tos,
-    //     uint256[] calldata tokenIds,
-    //     bytes[] calldata data
-    // ) public payable returns (uint256) {
-    //     uint256 sum = 0;
-    //     for (uint256 i = 0; i < tos.length; i++) {
-    //         uint256 startGas = gasleft();
-    //         _transferGenericWithErrMesage(
-    //             token,
-    //             "safeTransferFrom(address,address,uint256,bytes)",
-    //             abi.encode(msg.sender, tos[i], tokenIds[i], data[i])
-    //         );
-    //         uint256 endGas = gasleft();
-    //         sum += startGas - endGas;
-    //     }
+    function mesureAverageGasERC20(
+        address token,
+        address[] calldata tos,
+        uint256[] calldata amounts
+    ) public payable returns (uint256) {
+        uint256 sum = 0;
+        uint256 max = 0;
+        uint256 min = 1 << 255;
+        for (uint256 i = 0; i < tos.length; i++) {
+            uint256 startGas = gasleft();
+            IERC20(token).transferFrom(msg.sender, tos[i], amounts[i]);
+            uint256 used = startGas - gasleft();
+            if (used > max) max = used;
+            if (used < min) min = used;
+            sum += used;
+        }
+        _revertWithGasMsg(sum, sum / tos.length, max, min, "Mesured gas >");
+    }
 
-    //     revert MesuredGas(sum, sum / tos.length);
-    // }
-
-    // function mesureAverageGasERC20(
-    //     address token,
-    //     address[] calldata tos,
-    //     uint256[] calldata amounts
-    // ) public payable returns (uint256) {
-    //     uint256 sum = 0;
-    //     for (uint256 i = 0; i < tos.length; i++) {
-    //         uint256 startGas = gasleft();
-    //         _transferGenericWithErrMesage(
-    //             token,
-    //             "transferFrom(address,address,uint256)",
-    //             abi.encode(msg.sender, tos[i], amounts[i])
-    //         );
-    //         uint256 endGas = gasleft();
-    //         sum += startGas - endGas;
-    //     }
-
-    //     revert MesuredGas(sum, sum / tos.length);
-    // }
+    function mesureAverageGasERC721(
+        address token,
+        address[] calldata tos,
+        uint256[] calldata tokenIds,
+        bytes[] calldata data
+    ) public payable returns (uint256) {
+        uint256 sum = 0;
+        uint256 max = 0;
+        uint256 min = 1 << 255;
+        for (uint256 i = 0; i < tos.length; i++) {
+            uint256 startGas = gasleft();
+            IERC721(token).safeTransferFrom(msg.sender, tos[i], tokenIds[i], data[i]);
+            uint256 used = startGas - gasleft();
+            if (used > max) max = used;
+            if (used < min) min = used;
+            sum += used;
+        }
+        _revertWithGasMsg(sum, sum / tos.length, max, min, "Mesured gas >");
+    }
 
     function _transfer(address to, uint256 amount, uint256 baseGas) internal returns (bool) {
         // NOTE: call transferFrom with gas limit to avoid gas greefing
@@ -311,26 +309,25 @@ contract Multisender {
         );
     }
 
-    // function _transferGenericWithErrMesage(
-    //     address target,
-    //     string memory functionSignature,
-    //     bytes memory args
-    // ) internal {
-    //     // NOTE: call with gas limit to avoid gas greefing
-    //     // slither-disable-next-line low-level-calls
-    //     (bool success, bytes memory data) = target.call(
-    //         abi.encodePacked(bytes4(keccak256(bytes(functionSignature))), args)
-    //     );
-
-    //     if (success) return;
-
-    //     if (data.length > 0) {
-    //         assembly {
-    //             let returndata_size := mload(data)
-    //             revert(add(32, data), returndata_size)
-    //         }
-    //     } else {
-    //         revert FailedInnerCall();
-    //     }
-    // }
+    function _revertWithGasMsg(
+        uint256 sum,
+        uint256 avarage,
+        uint256 max,
+        uint256 min,
+        string memory msg_
+    ) internal pure {
+        revert(
+            string.concat(
+                msg_,
+                " sum: ",
+                sum.toString(),
+                ", avarage: ",
+                avarage.toString(),
+                ", max: ",
+                max.toString(),
+                ", min: ",
+                min.toString()
+            )
+        );
+    }
 }
