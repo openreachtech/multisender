@@ -3,6 +3,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { Wallet, randomBytes } from "ethers";
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
 type GeneratorFunction<T> = () => T;
 
 const generateData = <T>(size: number, generator: GeneratorFunction<T>): T[] => {
@@ -46,13 +48,16 @@ describe("Multisender", function () {
     const ERC20MockGasEater = await ethers.getContractFactory("ERC20MockGasEater");
     const erc20Eater = await ERC20MockGasEater.deploy();
 
+    const ERC20MockError = await ethers.getContractFactory("ERC20MockError");
+    const erc20Err = await ERC20MockError.deploy();
+
     const ERC721ReceiverGasEater = await ethers.getContractFactory("ERC721ReceiverGasEater");
     const erc721Eater = await ERC721ReceiverGasEater.deploy();
 
     const Multisender = await ethers.getContractFactory("Multisender");
     const multisender = await Multisender.deploy();
 
-    return { minter, erc20, erc721, eater, erc20Eater, erc721Eater, multisender };
+    return { minter, erc20, erc721, eater, erc20Eater, erc20Err, erc721Eater, multisender };
   }
 
   describe("multisend", function () {
@@ -90,12 +95,10 @@ describe("Multisender", function () {
       const { erc20, multisender } = await loadFixture(deployContracts);
       // prepare
       await erc20.approve(multisender.target, 100_000);
-
       // transfer
       const tos = generateAddresses(123);
       const amounts = generateSerial(123, 100);
       await expect(multisender.multisendERC20(erc20.target, tos, amounts, 0)).not.to.be.reverted;
-
       // confirm sent amount
       for (let i = 0; i < tos.length; i++) {
         expect(await erc20.balanceOf(tos[i])).to.equal(amounts[i]);
@@ -106,7 +109,6 @@ describe("Multisender", function () {
     //   const { minter, erc20, multisender } = await loadFixture(deployContracts);
     //   // prepare
     //   await erc20.approve(multisender.target, 100_000);
-
     //   const tos = generateAddresses(123);
     //   const amounts = generateSerial(123, 100);
     //   const method = multisender.multisendERC20;
@@ -114,7 +116,6 @@ describe("Multisender", function () {
     //   const tx = await method.populateTransaction(erc20.target, tos, amounts, 0);
     //   // sub some gas from estimation
     //   tx.gasLimit = gas - (await multisender.BASE_ERC20_TRANSFER_GAS());
-
     //   await expect(minter.sendTransaction(tx)).to.be.revertedWith(/^will run out of gas at index 123 in 123/);
     // });
 
@@ -122,15 +123,37 @@ describe("Multisender", function () {
       const { erc20Eater, multisender } = await loadFixture(deployContracts);
       // prepare
       await erc20Eater.approve(multisender.target, 100_000);
-
       const tos = generateAddresses(123);
       const amounts = generateSerial(123, 100);
-
       await expect(multisender.multisendERC20(erc20Eater.target, tos, amounts, 0)).to.be.rejectedWith(
-        `failed to transfer to ${Math.floor(tos.length / 10)} addresses: ${
-          tos.filter((_, i) => amounts[i] % 10 === 0).reduce((acc, cur) => acc + "," + cur) + ","
-        }`
+        `failed to transfer to ${Math.floor(tos.length / 10)} addresses: ${tos
+          .filter((_, i) => amounts[i] % 10 === 0)
+          .reduce((acc, cur) => acc + "|no error message supplied, possibly insufficient gas," + cur)}`
       );
+    });
+    it("fail: with string type error", async function () {
+      const { erc20Err, multisender } = await loadFixture(deployContracts);
+      // prepare
+      await erc20Err.approve(multisender.target, 100_000);
+      const tos = generateAddresses(123);
+      const amounts = generateSerial(123, 100);
+      await expect(multisender.multisendERC20(erc20Err.target, tos, amounts, 0)).to.be.rejectedWith(
+        `failed to transfer to ${Math.floor(tos.length / 10)} addresses: ${tos
+          .filter((_, i) => amounts[i] % 10 === 0)
+          .reduce((acc, cur) => acc + "|custom reason," + cur)}`
+      );
+    });
+    it("fail: with error signature type", async function () {
+      const { erc20Err, multisender } = await loadFixture(deployContracts);
+      // prepare
+      await erc20Err.approve(multisender.target, 100_000);
+      const tos = generateAddresses(2);
+      tos.push(ZERO_ADDRESS);
+      const amounts = generateSerial(3, 100);
+      // await multisender.multisendERC20(erc20Err.target, tos, amounts, 0)
+      await expect(multisender.multisendERC20(erc20Err.target, tos, amounts, 0))
+        .to.be.revertedWithCustomError(erc20Err, "CustomError")
+        .withArgs("error sig custom reason");
     });
   });
 
@@ -185,33 +208,32 @@ describe("Multisender", function () {
       tos = tos.map((to, i) => (tokenIds[i] % 10 === 0 ? (erc721Eater.target as string).toLocaleLowerCase() : to));
 
       await expect(multisender.multisendERC721(erc721.target, tos, tokenIds, data, 0)).to.be.rejectedWith(
-        `failed to transfer to ${Math.floor(tos.length / 10)} addresses: ${
-          tos.filter((_, i) => tokenIds[i] % 10 === 0).reduce((acc, cur) => acc + "," + cur) + ","
-        }`
+        `failed to transfer to ${Math.floor(tos.length / 10)} addresses: ${tos
+          .filter((_, i) => tokenIds[i] % 10 === 0)
+          .reduce((acc, cur) => acc + "|ERC721: transfer to non ERC721Receiver implementer," + cur)}`
       );
     });
   });
 
-  describe("mesureAverageGas", function () {
+  // describe("mesureAverageGas", function () {
+  //   it("fail: gas greefing", async function () {
+  //     const { minter, erc721, multisender } = await loadFixture(deployContracts);
+  //     // prepare
+  //     const tokenIds = generateSerial(123, 100);
+  //     for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
+  //     await erc721.setApprovalForAll(multisender.target, true);
 
-    it("fail: gas greefing", async function () {
-      const { minter, erc721, multisender } = await loadFixture(deployContracts);
-      // prepare
-      const tokenIds = generateSerial(123, 100);
-      for (const tokenId of tokenIds) await erc721.mint(minter, tokenId);
-      await erc721.setApprovalForAll(multisender.target, true);
+  //     // transfer
+  //     const tos = generateAddresses(123);
+  //     const data = generateRandomBytes(123, 256);
 
-      // transfer
-      const tos = generateAddresses(123);
-      const data = generateRandomBytes(123, 256);
-      
-      const receipt = await multisender.mesureAverageGas(erc721.target, tos, tokenIds, data);
-      console.log(receipt)
+  //     const receipt = await multisender.mesureAverageGas(erc721.target, tos, tokenIds, data);
+  //     console.log(receipt);
 
-      // confirm sent tokenId
-      // for (let i = 0; i < tos.length; i++) {
-      //   expect((await erc721.ownerOf(tokenIds[i])).toLocaleLowerCase()).to.equal(tos[i]);
-      // }
-    });
-  });
+  //     // confirm sent tokenId
+  //     // for (let i = 0; i < tos.length; i++) {
+  //     //   expect((await erc721.ownerOf(tokenIds[i])).toLocaleLowerCase()).to.equal(tos[i]);
+  //     // }
+  //   });
+  // });
 });

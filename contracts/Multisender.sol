@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @dev Send ERC20/ERC721 to multiple account at once
@@ -50,18 +51,20 @@ contract Multisender {
 
         uint256 baseGas = baseGas_ != 0 ? baseGas_ : TRANSFER_GAS;
 
-        string memory failedList = "";
         uint256 sum = 0;
+        string memory failedList = "";
+        uint256 failedCount = 0;
         for (uint256 i = 0; i < tos.length; i++) {
             sum += amounts[i];
             if (!_transfer(tos[i], amounts[i], baseGas)) {
                 failedList = string.concat(failedList, tos[i].toHexString(), ",");
+                failedCount++;
             }
         }
 
         require(sum == msg.value, "sum of amounts must be equal to msg.value");
 
-        _assertFailedList(failedList);
+        _assertFailedList(failedList, failedCount);
     }
 
     /**
@@ -85,20 +88,23 @@ contract Multisender {
         uint256 baseGas = baseGas_ != 0 ? baseGas_ : BASE_ERC20_TRANSFER_GAS;
 
         string memory failedList = "";
+        uint256 failedCount = 0;
         for (uint256 i = 0; i < tos.length; i++) {
-            if (
-                !_transferGeneric(
-                    token,
-                    baseGas,
-                    "transferFrom(address,address,uint256)",
-                    abi.encode(msg.sender, tos[i], amounts[i])
-                )
-            ) {
-                failedList = string.concat(failedList, tos[i].toHexString(), ",");
+            (bool success, string memory reason) = _transferGenericWithErrMesage(
+                token,
+                baseGas,
+                "transferFrom(address,address,uint256)",
+                abi.encode(msg.sender, tos[i], amounts[i])
+            );
+
+            if (!success) {
+                bool isLast = i == tos.length - 1;
+                failedList = _formatErrMsg(failedList, tos[i], reason, isLast);
+                failedCount++;
             }
         }
 
-        _assertFailedList(failedList);
+        _assertFailedList(failedList, failedCount);
     }
 
     /**
@@ -125,75 +131,65 @@ contract Multisender {
         uint256 baseGas = baseGas_ != 0 ? baseGas_ : BASE_ERC721_TRANSFER_GAS;
 
         string memory failedList = "";
+        uint256 failedCount = 0;
         for (uint256 i = 0; i < tos.length; i++) {
-            if (
-                !_transferGeneric(
-                    token,
-                    baseGas,
-                    "safeTransferFrom(address,address,uint256,bytes)",
-                    abi.encode(msg.sender, tos[i], tokenIds[i], data[i])
-                )
-            ) {
-                failedList = string.concat(failedList, tos[i].toHexString(), ",");
-            }
-        }
-
-        _assertFailedList(failedList);
-    }
-
-    function mesureAverageGas(
-        address token,
-        address[] calldata tos,
-        uint256[] calldata tokenIds,
-        bytes[] calldata data
-    ) public payable returns (uint256) {
-        uint256 sum = 0;
-        for (uint256 i = 0; i < tos.length; i++) {
-            uint256 startGas = gasleft();
-            _transferGenericWithErrMesage(
+            (bool success, string memory reason) = _transferGenericWithErrMesage(
                 token,
+                baseGas,
                 "safeTransferFrom(address,address,uint256,bytes)",
                 abi.encode(msg.sender, tos[i], tokenIds[i], data[i])
             );
-            uint256 endGas = gasleft();
-            sum += startGas - endGas;
+
+            if (!success) {
+                bool isLast = i == tos.length - 1;
+                failedList = _formatErrMsg(failedList, tos[i], reason, isLast);
+                failedCount++;
+            }
         }
 
-        revert MesuredGas(sum, sum / tos.length);
+        _assertFailedList(failedList, failedCount);
     }
 
-    // function _validateLeftgas(uint256 i, uint256 total, uint256 requiredGas) internal view {
-    //     if (gasleft() < requiredGas) {
-    //         revert(
-    //             string.concat(
-    //                 "will run out of gas at index ",
-    //                 (i + 1).toString(),
-    //                 " in ",
-    //                 total.toString(),
-    //                 ", left: ",
-    //                 gasleft().toString(),
-    //                 " required: ",
-    //                 requiredGas.toString()
-    //             )
+    // function mesureAverageGas(
+    //     address token,
+    //     address[] calldata tos,
+    //     uint256[] calldata tokenIds,
+    //     bytes[] calldata data
+    // ) public payable returns (uint256) {
+    //     uint256 sum = 0;
+    //     for (uint256 i = 0; i < tos.length; i++) {
+    //         uint256 startGas = gasleft();
+    //         _transferGenericWithErrMesage(
+    //             token,
+    //             "safeTransferFrom(address,address,uint256,bytes)",
+    //             abi.encode(msg.sender, tos[i], tokenIds[i], data[i])
     //         );
+    //         uint256 endGas = gasleft();
+    //         sum += startGas - endGas;
     //     }
+
+    //     revert MesuredGas(sum, sum / tos.length);
     // }
 
-    function _assertFailedList(string memory failedList) internal pure {
-        uint256 length = bytes(failedList).length;
+    // function mesureAverageGasERC20(
+    //     address token,
+    //     address[] calldata tos,
+    //     uint256[] calldata amounts
+    // ) public payable returns (uint256) {
+    //     uint256 sum = 0;
+    //     for (uint256 i = 0; i < tos.length; i++) {
+    //         uint256 startGas = gasleft();
+    //         _transferGenericWithErrMesage(
+    //             token,
+    //             "transferFrom(address,address,uint256)",
+    //             abi.encode(msg.sender, tos[i], amounts[i])
+    //         );
+    //         uint256 endGas = gasleft();
+    //         sum += startGas - endGas;
+    //     }
 
-        if (length > 0) {
-            revert(
-                string.concat(
-                    "failed to transfer to ",
-                    // NOTE: 43 length = address + ","
-                    (length / 43).toString(),
-                    " addresses: ",
-                    failedList
-                )
-            );
-        }
-    }
+    //     revert MesuredGas(sum, sum / tos.length);
+    // }
 
     function _transfer(address to, uint256 amount, uint256 baseGas) internal returns (bool) {
         // NOTE: call transferFrom with gas limit to avoid gas greefing
@@ -223,24 +219,118 @@ contract Multisender {
 
     function _transferGenericWithErrMesage(
         address target,
+        uint256 baseGas,
         string memory functionSignature,
         bytes memory args
-    ) internal {
+    ) internal returns (bool, string memory) {
         // NOTE: call with gas limit to avoid gas greefing
         // slither-disable-next-line low-level-calls
-        (bool success, bytes memory data) = target.call(
+        (bool success, bytes memory data) = target.call{gas: baseGas * MAX_GAS_MULTIPLIER}(
             abi.encodePacked(bytes4(keccak256(bytes(functionSignature))), args)
         );
 
-        if (success) return;
+        if (success) {
+            // If the function returns a boolean, decode it. Otherwise, just return the success flag.
+            if (data.length == 32) {
+                return (abi.decode(data, (bool)), "");
+            }
+            // otherwise, return success
+            return (success, "");
+        }
 
         if (data.length > 0) {
+            // if error is string type
+            if (bytes4(data) == bytes4(keccak256("Error(string)"))) {
+                string memory reason;
+                // solhint-disable-next-line no-inline-assembly
+                assembly {
+                    // Get the pointer to the free memory
+                    reason := mload(0x40)
+
+                    // Calculate the length of the string (data length - 36)
+                    let length := sub(mload(data), 36)
+
+                    // Set the length of the string in memory
+                    mstore(reason, length)
+
+                    // Copy the string data to the memory
+                    // Data starts at position 68 in the 'data' (36 bytes offset + 32 bytes length prefix)
+                    let dataStart := add(data, 68)
+                    let dataEnd := add(dataStart, length)
+                    for {
+                        let i := dataStart
+                    } lt(i, dataEnd) {
+                        i := add(i, 0x20)
+                    } {
+                        mstore(add(reason, sub(i, dataStart)), mload(i))
+                    }
+
+                    // Update the free memory pointer
+                    // Add 32 bytes for the length field and round up length to nearest 32-byte word
+                    mstore(0x40, add(add(reason, length), iszero(mod(length, 32))))
+                }
+
+                return (success, reason);
+            }
+
+            // otherwise, revert imeediately
+            // solhint-disable-next-line no-inline-assembly
             assembly {
                 let returndata_size := mload(data)
                 revert(add(32, data), returndata_size)
             }
-        } else {
-            revert FailedInnerCall();
         }
+
+        // failed but no error message
+        return (success, "no error message supplied, possibly insufficient gas");
     }
+
+    function _formatErrMsg(
+        string memory parent,
+        address target,
+        string memory reason,
+        bool isLast
+    ) internal pure returns (string memory) {
+        string memory base = string.concat(parent, target.toHexString(), "|", reason);
+        return isLast ? base : string.concat(base, ",");
+    }
+
+    function _assertFailedList(string memory failedList, uint256 failedCount) internal pure {
+        // failedList is empty
+        if (bytes(failedList).length == 0) {
+            return;
+        }
+
+        revert(
+            string.concat(
+                "failed to transfer to ",
+                failedCount.toString(),
+                " addresses: ",
+                failedList
+            )
+        );
+    }
+
+    // function _transferGenericWithErrMesage(
+    //     address target,
+    //     string memory functionSignature,
+    //     bytes memory args
+    // ) internal {
+    //     // NOTE: call with gas limit to avoid gas greefing
+    //     // slither-disable-next-line low-level-calls
+    //     (bool success, bytes memory data) = target.call(
+    //         abi.encodePacked(bytes4(keccak256(bytes(functionSignature))), args)
+    //     );
+
+    //     if (success) return;
+
+    //     if (data.length > 0) {
+    //         assembly {
+    //             let returndata_size := mload(data)
+    //             revert(add(32, data), returndata_size)
+    //         }
+    //     } else {
+    //         revert FailedInnerCall();
+    //     }
+    // }
 }
